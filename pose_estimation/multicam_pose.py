@@ -15,9 +15,108 @@
 Open access: https://folia.unifr.ch/global/documents/234169
 Early draft: https://people.inf.ethz.ch/pomarc/pubs/LeeISRR13.pdf
 """
-from typing import Tuple
+from dataclasses import dataclass
+from typing import List, Tuple
 
 import numpy as np
+
+from .solver import solve
+
+@dataclass
+class PluckerLine:
+    """Plucker parameterization of a line in 3D (direction-moment)"""
+
+    d: np.ndarray
+    m: np.ndarray
+
+    @staticmethod
+    def from_point_and_direction(p: np.ndarray, d: np.ndarray) -> 'PluckerLine':
+        return PluckerLine(d=d, m=np.cross(p, d))
+
+def multicam_abs_pose(
+        camera_centers: np.ndarray,
+        camera_rays: np.ndarray,
+        world_points: np.ndarray
+    ) -> List[Tuple[np.ndarray, Tuple[float, float, float]]]:
+    """Estimates the pose of a multi-camera system given observations of 3 points.
+    
+    This implementation consumes camera centers and rays pointing towards 
+    observations, making it independent of camera models. Any setup of 3 cameras, 
+    not pinhole cameras in general and not necessarily sharing the formulation
+    of the camera model, can be interfaced with this routine.
+
+    Args:
+        camera_centers (np.ndarray): 3 x 3 matrix of camera centers (points are columns)
+        camera_rays (np.ndarray): 3 x 3 matrix of camera rays
+        world_points (np.ndarray): 3 x 3 matrix of observed world points
+
+    Returns:
+        List[Tuple[np.ndarray, Tuple[float, float, float]]]: a list of 
+            (rig pose, depth triplet) pairs, where depths define the position of
+            observed points along cameras rays, i.e., pt = center + d * ray
+    """
+    print(camera_centers.shape, camera_rays.shape, world_points.shape)
+    assert camera_centers.shape == (3, 3) and camera_centers.shape == camera_rays.shape \
+        and camera_centers.shape == world_points.shape
+
+    # Represent camera rays using Plucker lines
+    lines: List[PluckerLine] = []
+    for i in range(3):
+        lines.append(
+            PluckerLine.from_point_and_direction(camera_centers[:, i], camera_rays[:, i]))
+
+    # Form key equations and call the solver, need pair-wise point distances
+    distances = np.zeros((3, 3))
+    for i in range(3):
+        for j in range(3):
+            if i != j:
+                diff = world_points[0:3, i] - world_points[0:3, j]
+                distances[i, j] = np.dot(diff, diff)
+
+    def make_constraint(i: int, j: int):
+        # To arrive at the coefficients k1, ..., k6, rewrite the LHS of Eq. (3) as
+        # \lVert d_i \times m_i + \lambda_i d_i - (d_j \times m_j + \lambda_j d_j) \rVert^2  =
+        # (\lambda_i d_i^T - \lambda_j d_j^T + c_{ij}^T)(\lambda_i d_i - \lambda_j d_j + c_{ij})
+        # where c_{ij} = d_i \times m_i - d_j \times m_j, the multiply and group terms
+        c = np.cross(lines[i].d, lines[i].m) - np.cross(lines[j].d, lines[j].m)
+
+        k1 = np.dot(lines[i].d, lines[i].d)
+        k2 = -2 * np.dot(lines[i].d, lines[j].d)
+        k3 = 2 * np.dot(lines[i].d, c)
+        k4 = np.dot(lines[j].d, lines[j].d)
+        k5 = -2 * np.dot(lines[j].d, c)
+        k6 = np.dot(c, c) - distances[i, j]
+
+        return [k1, k2, k3, k4, k5, k6]
+
+    K = np.zeros((3, 6))
+    K[0, :] = make_constraint(0, 1)
+    K[1, :] = make_constraint(0, 2)
+    K[2, :] = make_constraint(1, 2)
+
+    lambdas = solve(K)
+
+    # Recover points form Plucker depths, work out pose transforms
+    solutions = []
+    for (d1, d2, d3) in lambdas:
+        solved_points = np.zeros((3, 3))
+        solved_points[:, 0] = np.cross(lines[0].d, lines[0].m) + d1 * lines[0].d
+        solved_points[:, 1] = np.cross(lines[1].d, lines[1].m) + d2 * lines[1].d
+        solved_points[:, 2] = np.cross(lines[2].d, lines[2].m) + d3 * lines[2].d
+
+        rig_from_world = np.eye(4)
+        rig_from_world[0:3, 0:3], rig_from_world[0:3, 3] = \
+            threepoint_abs_pose(world_points[0:3, :], solved_points)
+
+        if np.any(np.isnan(rig_from_world)):
+            continue
+
+        # Translate Plucker depths to depths along camera rays
+        depths = [np.dot(camera_rays[:, i], solved_points[:, i] - camera_centers[:, i]) for i in range(3)]
+
+        solutions.append((rig_from_world, depths))
+
+    return solutions
 
 def threepoint_abs_pose(x1: np.ndarray, x2: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Finds a rigid transform (R, t) that aligns two constellations of 3 points.
