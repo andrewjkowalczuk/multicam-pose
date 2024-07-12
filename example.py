@@ -18,8 +18,8 @@ class Camera:
 
 def main():
     # Experimental setup: 
-    # 3 pinhole cameras, each mapping a 90 x 67.5 deg. FOV to a 1440 x 1080px image, 
-    # space, observing a planar grid of points, e.g., a checkerboard.
+    # 3 pinhole cameras, each mapping a 90 x 67.5 deg. FOV to a 1440 x 1080px 
+    # image space, observing a planar grid of points, e.g., a checkerboard.
     # The first camera serves as the origin of the camera rig.
     cameras = [
         Camera(
@@ -56,6 +56,10 @@ def main():
         camera_points = camera.transform @ rig_from_world @ world_points
         image_points[:, :, i] = camera.pinhole @ camera_points[0:3, :]
         image_points[:, :, i] /= image_points[2, :, i]
+
+    noise_sigma = 0.25
+    np.random.seed(54547)
+    image_points[0:2, :, :] += noise_sigma * np.random.randn(*image_points[0:2, :, :].shape)
 
     point_indices = [50, 17, 54] # 
 
@@ -121,10 +125,18 @@ def main():
     optimized_pose[0:3, 0:3] = Rotation.from_rotvec(result.x[0:3]).as_matrix()
     optimized_pose[0:3, 3] = result.x[3:]
 
-    signed_errors = evaluate(optimized_pose, cameras, world_points, image_points)
-    mean_error = np.sqrt(signed_errors[0, :, :] ** 2 + signed_errors[1, :, :] ** 2).mean()
+    # How close did we land?
+    mean_err = lambda signed_errors: np.sqrt(signed_errors[0, :, :] ** 2 + signed_errors[1, :, :] ** 2).mean()
+    initial_error = mean_err(evaluate(pose, cameras, world_points, image_points))
+    final_error = mean_err(evaluate(optimized_pose, cameras, world_points, image_points))
+    pose_diff = np.linalg.inv(optimized_pose) @ rig_from_world
+
     print(result)
-    print(f"  mean error: {mean_error}px")
+    print()
+    print(f"   initial error: {initial_error:.6f}px")
+    print(f"     final error: {final_error:.6f}px")
+    print(f" rotational diff: {1000 * np.linalg.norm(Rotation.from_matrix(pose_diff[0:3, 0:3]).as_rotvec()):.6f}mrad")
+    print(f" positional diff: {np.linalg.norm(pose_diff[0:3, 3]):.6f}m")
 
     f = plt.figure()
     ax = f.add_subplot(projection='3d')
@@ -144,7 +156,7 @@ def main():
 
     ax.set_aspect('equal')
 
-    f, ax = plt.subplots(1, 3)
+    f, ax = plt.subplots(1, 3, figsize=(12, 3.5))
     for i, camera in enumerate(cameras):
         def project(world_pt):
             camera_pt = camera.transform @ optimized_pose @ world_pt
@@ -171,6 +183,8 @@ def main():
         ax[i].yaxis.set_ticks([])
         ax[i].invert_yaxis()
         ax[i].set_title(f"CAM{i}")
+
+        plt.tight_layout()
 
     plt.show()
 
