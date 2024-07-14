@@ -4,7 +4,7 @@ Multi-camera pose estimation using the method of Lee *et al.* [^Lee2015].
 
 # Introduction
 
-The Perspenctive-n-Point problem (PnP), i.e., the problem of estimating a camera pose from $n$ world-to-image point correspondences, is one of the fundamental problems of  geometric computer vision. The body of publications on PnP is significant; the variant with $n = 3$, called P3P, alone has at least several documented solutions. The applications of PnP/P3P are vast and include visual odometry, camera calibration, and photogrammetry.
+The Perspective-n-Point problem (PnP), i.e., the problem of estimating a camera pose from $n$ world-to-image point correspondences, is one of the fundamental problems of  geometric computer vision. The body of publications on PnP is significant; the variant with $n = 3$, called P3P, alone has at least several documented solutions. The applications of PnP/P3P are vast and include visual odometry, camera calibration, and photogrammetry.
 
 Intrinsically, the PnP/P3P algorithms work with a single camera. Most applications, however, require localizing an entire camera rig. Naturally, one may run standard PnP pose estimation for each camera, typically in combination with with some RANSAC-like outlier rejection scheme, and choose a solution that best fits all of the cameras in a rig. This is where multi-camera pose estimation algorithms come handy. This project implements one such algorithm, namely, the method by Lee *et al.* proposed in the following paper:
 
@@ -68,7 +68,7 @@ After finding the roots of the above polynomial (solutions for $\lambda_3$), the
 
 # Example
 
-To demonstrate the implementation, a synthetic rig is used with 3 identical cameras mapping 90 x 67.5 deg. viewing volumes into 1440 x 1080px image spaces. The cameras observe a planar grid of points ("world points"), e.g., corners in a checkerboard pattern such as those used in camera calibration, of which three are chosen as reference points for pose estimation. The origin of the coordinate world coordinate system is in the center of the grid and x- and y-axes run along the rows and columns of points. Additionally, small Gaussian noise is added to all observations. The experimental setup is illustarted below.
+To demonstrate the implementation, a synthetic rig is used with 3 identical cameras mapping 90 x 67.5 deg. viewing volumes into 1440 x 1080px image spaces. The cameras observe a planar grid of points ("world points"), e.g., corners in a checkerboard pattern such as those used in camera calibration, of which three are chosen as reference points for pose estimation. The origin of the coordinate world coordinate system is in the center of the grid and x- and y-axes run along the rows and columns of points. Additionally, small Gaussian noise is added to all observations. The experimental setup is illustrated below.
 
 ![Experimental setup](./figures/setup.png "Camera rig")
 
@@ -76,7 +76,7 @@ The implementation takes three camera centers, three unit-length vectors in rig 
 
 The crux of the algorithm is evaluating the coefficients of the univariate polynomial dependent on $\lambda_3$; the paper omits the details of this operation. Here, the expressions for $A, B, \ldots, I$ were obtained using Macaulay2[^Macaulay2] (see comments in `solver.py` for specific commands). 
 
-Once candidate poses are calculated and the best-fititng pose is identified, it is refined using non-linear least squares (`scipy.optimize.least_squares`) by minimizing the total reprojection error over all observations; rotations are parameterized in $SO(3)$ with `scipy.spatial.transform.Roation` providing the exponential map and logarithm operations:
+Once candidate poses are calculated and the best-fititng pose is identified, it is refined using non-linear least squares (`scipy.optimize.least_squares`) by minimizing the total reprojection error over all observations; rotations are parameterized in $SO(3)$ with `scipy.spatial.transform.Rotation` providing the exponential map and logarithm operations:
 
 ```
      message: `gtol` termination condition is satisfied.
