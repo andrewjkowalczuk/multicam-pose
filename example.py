@@ -6,7 +6,7 @@ import numpy as np
 from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
 
-from drawing import draw_camera
+from drawing import draw_camera, draw_pose
 from pose_estimation.multicam_pose import multicam_abs_pose
 
 @dataclass
@@ -143,6 +143,8 @@ def main():
 
     colors = np.linspace(0.0, 1.0, image_points.shape[1])
     ax.scatter(world_points[0, :], world_points[1, :], world_points[2, :], s=2.0, c=colors, cmap='Spectral')
+    draw_pose(np.eye(4), scale=0.1)
+
     for i, camera in enumerate(cameras):
         world_from_camera = np.linalg.inv(camera.transform @ rig_from_world)
         ax.plot(
