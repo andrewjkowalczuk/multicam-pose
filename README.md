@@ -28,19 +28,17 @@ The algorithm accepts a set of 3 world points $\{X_1, X_2, X_3\}$, the correspon
 Camera rays are represented using Pl&uuml;cker lines and the reference points are parameterized by depths along the Pl&uuml;cker lines.
 
 The solution is based on the observation that pair-wise distances between the three points are the same in both the world and rig coordinate frames, which leads to the following constraint between each pair of points $(X_i, X_j)$:
-$$
-\begin{equation*}
+```math
 \lVert X_i - X_j \rVert^2 = \lVert \lambda_i d_i + \lambda_j d_j - (\underbrace{d_i \times m_i + d_j \times m_j}_{c_{ij}})  \rVert^2
-\end{equation*}
-$$
+```
 where $\lambda_i$ and $\lambda_j$ are the depths along the Pl&uuml;cker lines.
 
 By expanding the RHS, evaluating multiplication, and grouping terms the above is rewritten as
-$$
+```math
 k_1\lambda_i^2 + (k_2\lambda_j + k_3)\lambda_i + k_4\lambda_j^2 + k_5\lambda_j + k_6 = 0 \, ,
-$$
+```
 where
-$$
+```math
 \begin{align*}
 % c_{ij} &= d_i \times m_i - d_j \times m_j \\
 k_1 &= d_i^T d_i \\
@@ -50,21 +48,21 @@ k_4 &= d_j^T d_j \\
 k_5 &= -2 d_j^T c_{ij} \\
 k_6 &= c_{ij}^T c_{ij} - \lVert X_i - X_j \rVert^2 \, .
 \end{align*}
-$$
+```
 
 Combined, the three constraints yield a system of polynomial equations 
-$$
+```math
 \begin{align*}
 k_{11}\lambda_1^2 + (k_{12}\lambda_2 + k_{13})\lambda_1 + k_{14}\lambda_2^2 + k_{15}\lambda_2 + k_{16} &= 0 \\
 k_{21}\lambda_1^2 + (k_{22}\lambda_3 + k_{23})\lambda_1 + k_{24}\lambda_3^2 + k_{25}\lambda_3 + k_{26} &= 0 \\
 k_{31}\lambda_2^2 + (k_{32}\lambda_3 + k_{33})\lambda_2 + k_{34}\lambda_3^2 + k_{35}\lambda_3 + k_{36} &= 0
 \end{align*} \, ,
-$$
+```
 
 which is solved by applying the Sylvester resultant method twice. The first application eliminates $\lambda_1$ from the first two equations, the second consumes the result of the first application and eliminates $\lambda_2$ from the third equation. This double elimination yields a degree 8 polynomial  
-$$
+```math
 A\lambda_3^8 + B\lambda_3^7 + C\lambda_3^6 + D\lambda_3^5 + E\lambda_3^4 + F\lambda_3^3 + G\lambda_3^2 + H\lambda_3^5 + I = 0 \, ,
-$$
+```
 where $A, B, \ldots, I$ are algebraic expressions composed of the coefficients of the original system. 
 After finding the roots of the above polynomial (solutions for $\lambda_3$), the values of $\lambda_2$ and $\lambda_1$ are calculated using the remaining equations through back-substitution. Up to 32 solutions are found, of which imaginary solutions or negative depths (points behind cameras) can be discarded. 
 
@@ -117,6 +115,4 @@ Finally, synthetic views of the test points in the view of the 3 cameras are gen
 
 
 [^Lee2015]: "Minimal Solutions for Pose Estimation of a Multi-Camera System", Gim Hee Lee, Bo Li, Marc Pollefeys, and Friedrich Fraundorfer (2015) <https://doi.org/10.1177/0278364914557969>.
-
-
-[^Macaulay2] [Macaulay2](https://macaulay2.com>). A software system devoted to supporting research in algebraic geometry and commutative algebra
+[^Macaulay2]: [Macaulay2](https://macaulay2.com>). A software system devoted to supporting research in algebraic geometry and commutative algebra
